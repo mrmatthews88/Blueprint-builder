@@ -1,0 +1,167 @@
+<style>
+    .tile {
+        width: 57px;
+        border: 1px dashed white;
+        border-radius: 3px;
+        padding: 5px;
+    }
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+<div>
+    <canvas id="canvas" width="600px" height="600px" style="display: inline-block"></canvas>
+    <pre id="json"  style="display: inline-block; height: 600px; overflow-y: scroll;"></pre>
+</div>
+<input type="number" id="zoom_level" value="1" step="0.01">
+<span id="tile_num"></span>
+
+<button type="button" id="erase">Erase</button>
+
+
+
+<div class="" style="background-color: darkblue; margin:5px; padding: 3px;">
+    <div class="wall_tiles">
+        <img src="./tiles/wall_tile.png" id="wall_tile_bottom" class="tile"/>
+        <img src="./tiles/wall_tile_left.png" id="wall_tile_left" class="tile"/>
+        <img src="./tiles/wall_tile_top.png" id="wall_tile_top" class="tile"/>
+        <img src="./tiles/wall_tile_right.png" id="wall_tile_right" class="tile"/>
+        <img src="./tiles/wall_tile_corner_bottom_left.png" id="wall_tile_corner_bottom_left" class="tile"/>
+        <img src="./tiles/wall_tile_corner_bottom_right.png" id="wall_tile_corner_bottom_right" class="tile"/>
+        <img src="./tiles/wall_tile_corner_bottom_right.png" id="wall_tile_corner_bottom_right" class="tile"/>
+        <img src="./tiles/wall_tile_corner_top_right.png" id="wall_tile_corner_top_right" class="tile"/>
+        <img src="./tiles/wall_tile_corner_top_left.png" id="wall_tile_corner_top_left" class="tile"/>
+        <img src="./tiles/diagonal_wall_tile.png" id="diagonal_wall_tile" class="tile"/>
+        <img src="./tiles/diagonal_wall_tile_2.png" id="diagonal_wall_tile_2" class="tile"/>
+    </div>
+    <div class="doors">
+        <img src="./tiles/door_tile.png" id="door_tile" class="tile">
+        <img src="./tiles/door_tile_2.png" id="door_tile_2" class="tile">
+        <img src="./tiles/door_tile_3.png" id="door_tile_3" class="tile">
+        <img src="./tiles/door_tile_4.png" id="door_tile_4" class="tile">
+    </div>
+    <div class="lights">
+        <img src="./tiles/light_tile_off.png" id="light_off" class="tile">
+    </div>
+</div>
+<script>
+    var $zoom_level = $("#zoom_level")
+    var tile_size = {x: 19, y:19}
+    var selected_tile = null;
+
+    var canvas = document.getElementById("canvas"),
+        context = canvas.getContext("2d"),
+        img = new Image();
+
+
+    var tile_num = document.getElementById("tile_num");
+
+    img.src = './tiles/bg_tile.png';
+    img.width = 57;
+    img.height = 57;
+
+    $(".tile").click(function () {
+        selected_tile = $(this).attr('id')
+    })
+
+    img.onload = function () {
+        draw_background();
+    }
+
+    var is_mouse_down = false;
+
+    canvas.onmousedown = function () {
+        is_mouse_down = true
+        place_tile();
+    }
+    canvas.onmouseleave = function () {
+        is_mouse_down = false
+    }
+
+    canvas.onmouseup = function () {
+        is_mouse_down = false
+    }
+
+    var tile_count = Math.floor(canvas.width / 17);
+
+    var tiles = {};
+    //
+    // for (let x = 0; x <= tile_count; x++) {
+    //     for (let y = 0; y <= tile_count; y++) {
+    //         tiles[`${x},${y}`] = null
+    //     }
+    // }
+
+    function tileSize () {
+        return {x: tile_size.x * (+$zoom_level.val()), y: tile_size.y * (+$zoom_level.val())}
+    }
+
+    $zoom_level.change(function(){
+        redraw();
+    })
+
+    $("#erase").click(function(){
+        selected_tile = null;
+    })
+
+    var position = {x: 0, y: 0}
+    var position_key = `0,0`
+    canvas.onmousemove = function (event) {
+        var x = Math.floor(event.offsetX / tileSize().x);
+        var y = Math.floor(event.offsetY / tileSize().y);
+        position.x = x
+        position.y = y
+        position_key = `${x},${y}`
+        tile_num.textContent = `${x}, ${y}`
+        place_tile();
+        redraw();
+    }
+
+    function place_tile() {
+        if (!is_mouse_down) return;
+        if(selected_tile === null){
+            if(typeof tiles[position_key] !== 'undefined') {
+                 delete tiles[position_key]
+            }
+        }else {
+            tiles[position_key] = selected_tile;
+        }
+        $("#json").text(JSON.stringify(tiles,null,4))
+        redraw();
+    }
+
+    function draw_background() {
+        var ptrn = context.createPattern(img, 'repeat');
+        context.fillStyle = ptrn;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function draw_tiles() {
+
+        for (let x = 0; x <= tile_count; x++) {
+            for (let y = 0; y <= tile_count; y++) {
+                let tile_key = `${x},${y}`
+                if (typeof tiles[tile_key] == 'undefined') continue;
+                let tile = tiles[`${x},${y}`]
+                if (tile != null) {
+
+                        tile_image = document.getElementById(tile)
+                        context.drawImage(tile_image, Math.floor((x * tileSize().x)), Math.floor(y * tileSize().y), tileSize().x, tileSize().y);
+
+                }
+            }
+        }
+    }
+
+    function draw_hover_tile () {
+        if(!selected_tile) return;
+        tile_image =  document.getElementById(selected_tile);
+        context.drawImage(tile_image, Math.floor(position.x * tileSize().x), Math.floor(position.y * tileSize().y), tileSize().x, tileSize().y);
+    }
+
+    function redraw() {
+        draw_background();
+        draw_tiles();
+        draw_hover_tile();
+    }
+
+</script>
