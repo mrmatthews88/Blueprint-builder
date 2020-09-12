@@ -10,13 +10,15 @@
 
 <div>
     <canvas id="canvas" width="600px" height="600px" style="display: inline-block"></canvas>
-    <pre id="json"  style="display: inline-block; height: 600px; overflow-y: scroll;"></pre>
+    <div contenteditable="true" id="json" style="display: inline-block; height: 600px; overflow-y: scroll;       white-space: pre;
+  word-wrap: normal; width:600px;"></div>
 </div>
 <input type="number" id="zoom_level" value="1" step="0.01">
+<input type="number" id="offset_x" value="0" step="1">
+<input type="number" id="offset_y" value="0" step="1">
 <span id="tile_num"></span>
 
 <button type="button" id="erase">Erase</button>
-
 
 
 <div class="" style="background-color: darkblue; margin:5px; padding: 3px;">
@@ -44,8 +46,29 @@
     </div>
 </div>
 <script>
-    var $zoom_level = $("#zoom_level")
-    var tile_size = {x: 19, y:19}
+
+    var $offset_x = $("#offset_x")
+    var $offset_y = $("#offset_y")
+
+    $offset_x.change(function () {
+        redraw();
+    })
+
+    var data = {
+        tiles: {},
+        zoom: 1,
+        offset: {
+            x: 0,
+            y: 0
+        }
+    };
+
+    $("#zoom_level").change(function () {
+        data.zoom = +$(this).val()
+        redraw();
+    })
+
+    var tile_size = {x: 19, y: 19}
     var selected_tile = null;
 
     var canvas = document.getElementById("canvas"),
@@ -83,31 +106,21 @@
 
     var tile_count = Math.floor(canvas.width / 17);
 
-    var tiles = {};
-    //
-    // for (let x = 0; x <= tile_count; x++) {
-    //     for (let y = 0; y <= tile_count; y++) {
-    //         tiles[`${x},${y}`] = null
-    //     }
-    // }
 
-    function tileSize () {
-        return {x: tile_size.x * (+$zoom_level.val()), y: tile_size.y * (+$zoom_level.val())}
+    function tileSize() {
+        return {x: tile_size.x * data.zoom, y: tile_size.y * data.zoom}
     }
 
-    $zoom_level.change(function(){
-        redraw();
-    })
 
-    $("#erase").click(function(){
+    $("#erase").click(function () {
         selected_tile = null;
     })
 
     var position = {x: 0, y: 0}
     var position_key = `0,0`
     canvas.onmousemove = function (event) {
-        var x = Math.floor(event.offsetX / tileSize().x);
-        var y = Math.floor(event.offsetY / tileSize().y);
+        var x = Math.floor((event.offsetX + data.offset.x) / tileSize().x);
+        var y = Math.floor((event.offsetY + data.offset.y) / tileSize().y);
         position.x = x
         position.y = y
         position_key = `${x},${y}`
@@ -118,14 +131,17 @@
 
     function place_tile() {
         if (!is_mouse_down) return;
-        if(selected_tile === null){
-            if(typeof tiles[position_key] !== 'undefined') {
-                 delete tiles[position_key]
+        if (selected_tile === null) {
+            if (typeof data.tiles[position_key] !== 'undefined') {
+                delete data.tiles[position_key]
             }
-        }else {
-            tiles[position_key] = selected_tile;
+        } else {
+            data.tiles[position_key] = {
+                sprite: selected_tile,
+                position: {...position}
+            };
         }
-        $("#json").text(JSON.stringify(tiles,null,4))
+        $("#json").text(JSON.stringify(data, null, 4))
         redraw();
     }
 
@@ -135,27 +151,28 @@
         context.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    function draw_tiles() {
-
-        for (let x = 0; x <= tile_count; x++) {
-            for (let y = 0; y <= tile_count; y++) {
-                let tile_key = `${x},${y}`
-                if (typeof tiles[tile_key] == 'undefined') continue;
-                let tile = tiles[`${x},${y}`]
-                if (tile != null) {
-
-                        tile_image = document.getElementById(tile)
-                        context.drawImage(tile_image, Math.floor((x * tileSize().x)), Math.floor(y * tileSize().y), tileSize().x, tileSize().y);
-
-                }
-            }
-        }
+    function coords({x, y}) {
+        x = Math.floor(x * tileSize().x) - data.offset.x
+        y = Math.floor(y * tileSize().y) - data.offset.y
+        return {x, y}
     }
 
-    function draw_hover_tile () {
-        if(!selected_tile) return;
-        tile_image =  document.getElementById(selected_tile);
-        context.drawImage(tile_image, Math.floor(position.x * tileSize().x), Math.floor(position.y * tileSize().y), tileSize().x, tileSize().y);
+    function draw_tiles() {
+        let length = Object.keys(data.tiles).length
+        Object.keys(data.tiles).forEach(function (key) {
+            let pos = key.split(',')
+            tile_image = document.getElementById(data.tiles[key].sprite)
+            let {x, y} = coords(data.tiles[key].position)
+            context.drawImage(tile_image, x, y, tileSize().x, tileSize().y);
+        });
+
+    }
+
+    function draw_hover_tile() {
+        if (!selected_tile) return;
+        let tile_image = document.getElementById(selected_tile);
+        let {x, y} = coords(position)
+        context.drawImage(tile_image, x, y, tileSize().x, tileSize().y);
     }
 
     function redraw() {
